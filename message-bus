@@ -1,0 +1,28 @@
+# The Edge Insights for Industrial Message Bus
+
+EIS Message Bus is an abstraction over ZeroMQ*, which is used for all inter-container communication in EIS. The ZeroMQ message bus is a brokerless message bus implementing pub-sub and request-response patterns. Because it is brokerless, data is transferred directly from the source to the destination. For EIS 2.0, ZeroMQ is used in TCP mode and IPC mode with pub-sub and request-response patterns.
+
+## TCP Mode
+
+When used in TCP mode, the publisher of a stream will bind to a TCP socket, after which subscribers connect to that socket to receive data. In a request-response pattern, the responder acts as the server and binds the socket, while the requester connects to it. TCP mode is used when we need to send the data out of the node where it is generated or based on an administrative decision to use TCP only for reasons such as Windows* support. For TCP mode, full data encryption is enabled using the CurveZMQ protocol (http://curvezmq.org/page:read-the-docs).
+CurveZMQ uses the CurveCP handshake mechanism, which is different from the TLS. The CurveZMQ does not use any CA; therefore, the client requires the public key of server and the server requires the public key of the client to establish a mutually authenticated connection.
+
+## IPC Mode
+
+The IPC mode of communication in ZeorMQ uses Linux* IPC sockets, which work faster than TCP communication. IPC mode does not encrypt the data; therefore, it is used only for communication between applications running on the same node and where there is a need to transfer large amounts of data at a faster rate (like video frames). This mode is enabled in EIS for transferring video frames quickly from ingestion applications to analytic applications. Video frames are typically quite large (~6.5MB per frame); therefore, encrypting them would degrade performance, which is undesirable in the case of video analytics. All EIS that use the IPC mode of communication are executed under the same Linux user group, with the socket files that are created given read access to the same user group. Therefore, only authorized EIS applications can access and read data from these socket files. Applications in IPC mode need to be vetted by the administrator as they can access all streams published in IPC mode. If fine-grain access control is preferred for the application, the stream must be published in TCP mode.
+
+### Publish/Subscribe Tutorial
+
+The following tutorial describes how to publish/subscribe to messaging using the EIS Message Bus. The outcome of this tutorial will be two Python* scripts, one of which is used to publish messages, while the other is used to subscribe to messages.
+To start, we will create a script named, publisher.py. First, we will add a few necessary imports for use later in the tutorial.
+
+```python
+import os
+import time
+import json
+import argparse
+import eis.msgbus as mb
+```
+
+The last line of the imports above is where we import the EIS Message Bus Python binding, which for the sake of clarity, will herein be referenced as mb. 
+Next, we will add some more boilerplate code for parsing command line arguments.
